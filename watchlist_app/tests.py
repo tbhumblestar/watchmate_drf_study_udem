@@ -99,3 +99,110 @@ class WatchListTestCase(APITestCase):
         self.assertEqual(models.WatchList.objects.get().title,'Example title')
         
         self.assertEqual(models.WatchList.objects.count(),1)
+        
+class ReviewTestCase(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='example',password='p9l9o9k9!2')
+        self.token = Token.objects.get(user__username=self.user.username)
+        
+        #token인증을 위해 달아줌
+        #이렇게 해주면 client를 통해 요청을 보낼 때 authorization에 token을 넣어줄 수 있음
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+    
+        self.stream = models.StreamPlatform.objects.create(
+            name = "Netflix",
+            about = "#1 Streaming PlatForm",
+            website = "https://netflix.com"
+        )
+        self.watchlist = models.WatchList.objects.create(
+            platform=self.stream,
+            title = 'Example title',
+            storyline = 'Example Story',
+            active = True
+        )
+        
+        
+        #WatchList2를 만든 이유
+        #유저는 watchlist하나당 한개의 리뷰만 쓸 수 있다보니, watchlist가 하나이면 test하면서 무조건 에러가 남
+        self.watchlist2 = models.WatchList.objects.create(
+            platform=self.stream,
+            title = 'Example title',
+            storyline = 'Example Story',
+            active = True
+        )
+        self.review = models.Review.objects.create(
+            review_user = self.user,
+            rating = 5,
+            description = "reviews",
+            watchlist = self.watchlist2,
+            active = True
+        )
+    def test_review_create(self):
+        data = {
+            'review_user':self.user,
+            'rating':5,
+            'description':'Great Moview!',
+            'watchlist':self.watchlist,
+            'active':True            
+        }
+        
+        response = self.client.post(reverse('review-create',args=(self.watchlist.id,)),data)
+        self.assertEqual(response.status_code,status.HTTP_201_CREATED)
+        
+        #유저하나당 리뷰는 하나이므로, 똑같은 리뷰생성요처을 두번보내면 400이 와야 함
+        response = self.client.post(reverse('review-create',args=(self.watchlist.id,)),data)
+        self.assertEqual(response.status_code,status.HTTP_400_BAD_REQUEST)
+        
+        #모델에 데이터가 하나이면, get으로 조회시 한개의 데이터가 바로 선택됨
+        #근데 review를 하나 더 만들어주면서 사용하지 못함 > 이런방식은 애초에 좋지 않음
+        # self.assertEqual(models.Review.objects.get().rating,5)
+        
+        #
+        self.assertEqual(models.Review.objects.filter(watchlist=self.watchlist).get().rating,5)
+        
+        self.assertEqual(models.Review.objects.count(),2)
+        
+    #인증되지 않은 유저의 리뷰 생성 테스트 > 인증이 안되어 있으므로 401이 와야 함
+    def test_review_create_unauth(self):
+        data = {
+            'review_user':self.user,
+            'rating':5,
+            'description':'Great Moview!',
+            'watchlist':self.watchlist,
+            'active':True            
+        }
+        
+        #인증된 유저가 없게(None) 함
+        #강제로 특정 유저의 인증가 인증되도록 하게 하려면 self.client.force_authenticate(user=user)
+        #참고 : https://www.django-rest-framework.org/api-guide/testing/#authenticating
+        self.client.force_authenticate(user=None)
+        response = self.client.post(reverse('review-create',args=(self.watchlist.id,)),data)
+        self.assertEqual(response.status_code,status.HTTP_401_UNAUTHORIZED)
+        
+    def test_review_update(self):
+        data = {
+            'review_user':self.user,
+            'rating':5,
+            'description':'Great Moview!-updated!',
+            'watchlist':self.watchlist,
+            'active':False   
+        }
+        
+        response = self.client.put(reverse('review-detail',args=(self.review.id,)),data)
+        self.assertEqual(response.status_code,status.HTTP_200_OK)
+        
+    def test_review_list(self):
+        response = self.client.get(reverse('review-list',args=(self.review.id,)))
+        self.assertEqual(response.status_code,status.HTTP_200_OK)
+        
+    #detail
+    def test_review_ind(self):
+        response = self.client.get(reverse('review-detail',args=(self.review.id,)))
+        self.assertEqual(response.status_code,status.HTTP_200_OK)
+        
+    def test_review_user(self):
+        
+        #쿼리파라미터때문에 reverse를 못쓴다!
+        response = self.client.get('/watch/review/?username='+self.user.username)
+        self.assertEqual(response.status_code,status.HTTP_200_OK)
+        self.assertEqual(response.json()[0].get('id'),1)

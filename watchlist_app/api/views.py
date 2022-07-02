@@ -42,16 +42,21 @@ class UserReview(generics.ListAPIView):
     
     def get_queryset(self):
         #url_kwargs 쓰는 경우
-        username = self.kwargs['username']
+        # username = self.kwargs['username']
         #query_params를 쓰는 경우
-        # username = self.request.query_params.get('username',None)
+        username = self.request.query_params.get('username',None)
         
+        print("\n")
+        print("print_test_in_testing")
+        print("\n")
+
         return Review.objects.filter(review_user__username=username)
 
 
 class ReviewCreate(generics.CreateAPIView):
     serializer_class = ReviewSerializer
-    throttle_classes = [ReviewCreateThrottle]
+    # throttle_classes = [ReviewCreateThrottle]
+    permission_classes =[IsAuthenticated]
     
     def get_queryset(self):
         return Review.objects.all()
@@ -224,7 +229,7 @@ class WatchListGV(generics.ListAPIView):
     
 
 class WatchListAV(APIView):
-    # permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     def get(self,request):
         movies = WatchList.objects.all()
         serializer = WatchListSerializer(movies,many=True)

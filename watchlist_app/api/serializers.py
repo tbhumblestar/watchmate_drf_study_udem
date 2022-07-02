@@ -23,7 +23,7 @@ class WatchListSerializer(serializers.ModelSerializer):
     # reviews = ReviewSerializer(many=True,read_only=True)
     
     #다음과 같이 이름이 원래 모델명의 foreignkey로 되어있으면, write할때 실패해서 안됨!!1
-    platform = serializers.CharField(source='platform.name',read_only=True)
+    # platform = serializers.CharField(source='platform.name',read_only=True)
     
     platform_name = serializers.CharField(source='platform.name',read_only=True)
     
